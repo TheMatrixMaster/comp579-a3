@@ -11,14 +11,20 @@ np.random.seed(33)
 
 
 def setup():
-    # Setup the environment for Mountain-Car-v0
-    env = gym.make("MountainCar-v0")
+    # Setup the environment
+    env_name = "CartPole-v1"
+    env = gym.make(env_name)
     env.reset()
     print("Action space:", env.action_space.n)
     print("State space:", env.observation_space.low)
 
     # value limits per dimension
     value_limits = np.array([env.observation_space.low, env.observation_space.high]).T
+
+    # override the values in limits if infinity is present
+    value_limits[value_limits <= -3.4e38] = -50
+    value_limits[value_limits >= 3.4e38] = 50
+
     value_limits = list([tuple(value_limits[i]) for i in range(value_limits.shape[0])])
 
     # Setup the tilecoder
@@ -83,7 +89,7 @@ def main(env, coder):
 if __name__ == "__main__":
     epsilons = [0.1, 0.01, 0.001]
     alphas = [1 / 4, 1 / 8, 1 / 16]
-    num_trials = 50
+    num_trials = 1
     episodes_per_trial = 1000
 
     env, coder = setup()
