@@ -1,5 +1,5 @@
 """
-This file contains the code for Q-learning and Exptected SARSA learning algorithms.
+This file contains the code for Q-learning, Exptected SARSA, REINFORCE, and Actor-Critic.
 We use a linear function approximator to estimate Q-values for each state-action pair
 such that Q(s,a) = w[a]^T * x[s] where w[a] is the weight vector for action a and 
 x[s] is the feature vector for state s.
@@ -86,10 +86,13 @@ class Agent:
         """
         returns = []
         for i in range(num_trials):
-            print(f"Trial {i+1}/{num_trials} ", end="")
+            if i % 10 == 0:
+                print(
+                    f"Trial {i+1}/{num_trials} for {self.__name__} with eps={self.eps} and alpha={self.alpha}"
+                )
             self.reset()
             trial_returns = []
-            for _ in tqdm(range(num_episodes_per_trial)):
+            for _ in range(num_episodes_per_trial):
                 total_return = self.train_episode()
                 trial_returns.append(total_return)
             returns.append(trial_returns)
@@ -130,7 +133,7 @@ class Agent:
 
         return total_return
 
-    def plot_performance(self, label: str, ax: int, returns: List[List[float]]) -> None:
+    def plot_performance(label: str, ax: int, returns: List[List[float]]) -> None:
         """Plots the performance of the agent over the trials.
 
         Plots the average return on the Y-axis and the episode number on the X-axis
@@ -166,6 +169,8 @@ class Agent:
 
 
 class QLearning(Agent):
+    __name__ = "Q-Learning"
+
     def update(self, s, a, r, s_prime, a_prime, done, mask=None) -> None:
         """Updates the weight matrix using the Q-learning update rule:
 
@@ -193,6 +198,8 @@ class QLearning(Agent):
 
 
 class ExpectedSARSA(Agent):
+    __name__ = "Expected SARSA"
+
     def update(self, s, a, r, s_prime, a_prime, done, mask=None) -> None:
         """Updates the weight matrix using the Expected SARSA update rule:
 

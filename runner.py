@@ -2,9 +2,10 @@ import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
 
-from models import QLearning, ExpectedSARSA
+from models import QLearning, ExpectedSARSA, Agent
 from tilecoding import TileCoder
 from itertools import product
+from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 
 np.random.seed(33)
 
@@ -29,47 +30,61 @@ def setup():
     return env, coder
 
 
+def run(idx, eps, alpha, env, coder, Algorithm, num_trials, episodes_per_trial):
+    try:
+        print(f"Running {Algorithm.__name__} with epsilon={eps} and alpha={alpha}")
+        qlearner = Algorithm(
+            env=env,
+            coder=coder,
+            eps=eps,
+            alpha=alpha,
+            gamma=1.0,
+        )
+        returns = qlearner.train(num_trials, episodes_per_trial)
+        return (returns, Algorithm.__name__, idx)
+
+    except Exception as e:
+        print(e)
+
+
 def main(env, coder):
     # Setup plots
     fig, ax = plt.subplots(3, 3, figsize=(15, 15))
     fig.suptitle("Mountain Car Performance", fontsize=16)
     ax = ax.flatten()
 
+    executor = ProcessPoolExecutor(18)
+    futures = []
+
     for idx, (eps, alpha) in enumerate(product(epsilons, alphas)):
         ax[idx].set_title(f"eps={eps}, alpha={alpha}")
+        for Algorithm in [QLearning, ExpectedSARSA]:
+            futures.append(
+                executor.submit(
+                    run,
+                    idx,
+                    eps,
+                    alpha,
+                    env,
+                    coder,
+                    Algorithm,
+                    num_trials,
+                    episodes_per_trial,
+                )
+            )
 
-        print(f"Running Q-Learning with epsilon={eps} and alpha={alpha}")
-        qlearner = QLearning(
-            env=env,
-            coder=coder,
-            eps=eps,
-            alpha=alpha,
-            gamma=1.0,
-        )
-        returns = qlearner.train(
-            num_trials=num_trials, num_episodes_per_trial=episodes_per_trial
-        )
-        qlearner.plot_performance(label=f"Q-Learning", ax=ax[idx], returns=returns)
+    wait(futures, return_when=ALL_COMPLETED)
+    res = [f.result() for f in futures]
 
-        print(f"Running Expected SARSA with epsilon={eps} and alpha={alpha}")
-        esarsa = ExpectedSARSA(
-            env=env,
-            coder=coder,
-            eps=eps,
-            alpha=alpha,
-            gamma=1.0,
-        )
-        returns = esarsa.train(
-            num_trials=num_trials, num_episodes_per_trial=episodes_per_trial
-        )
-        esarsa.plot_performance(label=f"Expected SARSA", ax=ax[idx], returns=returns)
+    for returns, name, idx in res:
+        Agent.plot_performance(label=name, ax=ax[idx], returns=returns)
 
 
 if __name__ == "__main__":
     epsilons = [0.1, 0.01, 0.001]
     alphas = [1 / 4, 1 / 8, 1 / 16]
-    num_trials = 1
-    episodes_per_trial = 250
+    num_trials = 50
+    episodes_per_trial = 1000
 
     env, coder = setup()
     main(env, coder)
