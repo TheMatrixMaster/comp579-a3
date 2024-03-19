@@ -5,6 +5,7 @@ state-action pair such that Q(s,a) = w[a]^T * x[s] where w[a] is the weight vect
 action a and x[s] is the feature vector for state s.
 """
 
+import pdb
 import numpy as np
 from typing import List
 from gymnasium import Env
@@ -14,11 +15,9 @@ from tilecoding import TileCoder
 def softmax(x, temp=1.0, mask=None) -> np.ndarray:
     if np.isnan(x).any():
         raise ValueError("x contains NaN")
-
     # only consider actions where mask is 1
     if mask is not None:
         x = x * mask
-
     # subtract max for numerical stability
     x = x - np.max(x)
     exp_x = np.exp(x / temp)
@@ -248,6 +247,17 @@ class ExpectedSARSA(Agent):
 
 class REINFORCE(Agent):
     __name__ = "REINFORCE"
+    with_baseline: bool
+
+    def __init__(
+        self, with_baseline: bool = False, beta: float = None, gamma=0.99, **kwargs
+    ):
+        super().__init__(gamma=gamma, **kwargs)
+        self.with_baseline = with_baseline
+
+        if with_baseline:
+            self.V = np.random.uniform(-0.001, 0.001, (self.coder.n_tiles, 1))
+            self.beta = beta if beta is not None else self.alpha
 
     def select_action(self, state, mask=None) -> int:
         """Selects an action using the softmax policy with self.temperature
@@ -271,7 +281,7 @@ class REINFORCE(Agent):
     ) -> None:
         """Updates the weights using the REINFORCE update rule:
 
-        w[a] = w[a] + alpha * gamma^t * G_t * grad_log_pi(a|s)
+        w[a] = w[a] + alpha * G_t * grad_log_pi(a|s)
         G_t = sum_{t'=t}^T gamma^(t'-t) * r_{t'}
 
         Args:
@@ -284,8 +294,15 @@ class REINFORCE(Agent):
         G = 0
         for t in range(len(states) - 1, -1, -1):
             G = self.gamma * G + rewards[t]
+            target = G
             grad_log_pi = self.grad_log_pi(states[t], actions[t])
-            self.W += self.alpha * self.gamma**t * G * grad_log_pi
+
+            if self.with_baseline:
+                delta = target - self.V.T.dot(states[t])
+                self.V += (self.beta * delta * states[t])[:, None]
+                self.W += self.alpha * delta * grad_log_pi
+            else:
+                self.W += self.alpha * target * grad_log_pi
 
     def grad_log_pi(self, state, action) -> np.ndarray:
         """Computes the gradient of the log policy for a given state and action
@@ -333,6 +350,12 @@ class REINFORCE(Agent):
             self.update(states, actions, rewards)
 
         return total_return
+
+    def reset(self) -> None:
+        """Resets the agent's state."""
+        super().reset()
+        if self.with_baseline:
+            self.V = np.random.uniform(-0.001, 0.001, (self.coder.n_tiles, 1))
 
 
 class ActorCritic(Agent):

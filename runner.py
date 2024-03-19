@@ -45,6 +45,7 @@ def run(
     num_trials=50,
     episodes_per_trial=1000,
     temp=1.0,
+    gamma=1.0,
     **kwargs,
 ):
     try:
@@ -56,7 +57,7 @@ def run(
             coder=coder,
             eps=eps,
             alpha=alpha,
-            gamma=1.0,
+            gamma=gamma,
             temp=temp,
             **kwargs,
         )
@@ -88,7 +89,10 @@ def main_p2(env, coder, num_processes=1):
                     coder=coder,
                     Algorithm=Algorithm,
                     num_trials=num_trials,
+                    gamma=0.99,
                     temp=temp,
+                    alpha=lr,
+                    episodes_per_trial=episodes_per_trial,
                 ),
                 executor.submit(
                     run,
@@ -100,7 +104,10 @@ def main_p2(env, coder, num_processes=1):
                     temp=initial_temp,
                     decay_temp=True,
                     temp_tau=0.999,
-                    min_temp=0.1,
+                    gamma=0.99,
+                    min_temp=min_temp,
+                    alpha=lr,
+                    episodes_per_trial=episodes_per_trial,
                 ),
             ]
         )
@@ -136,6 +143,7 @@ def main_p1(env, coder, num_processes=1):
                     coder=coder,
                     Algorithm=Algorithm,
                     num_trials=num_trials,
+                    episodes_per_trial=episodes_per_trial,
                 )
             )
 
@@ -149,17 +157,23 @@ def main_p1(env, coder, num_processes=1):
 
 
 if __name__ == "__main__":
-    env_name = "CartPole-v1"
+    # env_name = "CartPole-v1"
+    env_name = "MountainCar-v0"
+
     epsilons = [0.1, 0.01, 0.001]
     alphas = [1 / 4, 1 / 8, 1 / 16]
 
-    temp = 0.15
+    temp = 0.1
+    lr = 0.001
     initial_temp = 1.0
+    min_temp = 0.1
 
-    num_trials = 1
+    num_trials = 50
     episodes_per_trial = 1000
 
     env, coder = setup()
+
     # _type = main_p1(env, coder, num_processes=18)
     _type = main_p2(env, coder, num_processes=4)
+
     plt.savefig(f"{env_name}_performance_{_type}.png")
