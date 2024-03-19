@@ -1,2 +1,4 @@
 __pycache__
 .DS_Store
+slurm-*
+.ipynb_checkpoints
