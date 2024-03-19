@@ -5,7 +5,6 @@ state-action pair such that Q(s,a) = w[a]^T * x[s] where w[a] is the weight vect
 action a and x[s] is the feature vector for state s.
 """
 
-import pdb
 import numpy as np
 from typing import List
 from gymnasium import Env
